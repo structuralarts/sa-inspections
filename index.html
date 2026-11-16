@@ -132,7 +132,14 @@ img{max-width:100%;display:block}
 .add-photos{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
 .drop{border:2px dashed var(--line);border-radius:12px;padding:28px;text-align:center;color:var(--muted)}
 .list-items{display:flex;flex-direction:column;gap:10px}
-.li{display:grid;grid-template-columns:32px 1fr auto auto;gap:8px;align-items:start}
+.li{display:grid;grid-template-columns:32px 1fr;gap:8px;align-items:start}
+.li-sep{width:1px;align-self:stretch;background:var(--line);margin:0 4px}
+.btn.rec{background:var(--brand);border-color:var(--brand);color:var(--on-brand)}
+.btn:disabled{opacity:.4;cursor:default}
+.li-move{display:flex;flex-direction:column;gap:4px}
+.li-move button{width:44px;height:30px;border-radius:8px;border:1px solid var(--line);background:var(--surface);display:flex;align-items:center;justify-content:center;padding:0}
+.li-move button svg{width:16px;height:16px}
+.li-move button:disabled{opacity:.3}
 .li .n{font-weight:700;color:var(--muted);padding-top:12px;text-align:right}
 .li textarea{min-height:52px}
 .hint{font-size:14px;color:var(--muted);margin:6px 0 0}
@@ -1559,8 +1566,8 @@ function panelHTML(){
           <div class="chips" style="margin-bottom:6px">${COMMENT_STARTERS.map((c, ci) => `<button class="chip" data-act="starter" data-k="${f.key}" data-i="${ci}">${STARTER_LABELS[ci]}</button>`).join('')}</div>
           <div class="with-mic"><textarea id="${introId}" data-bind="form.${f.key}_intro" placeholder="Pick a starter above or dictate your own">${esc(i.form[f.key + '_intro'] || '')}</textarea>${micBtn(introId)}</div></div>
           <div class="flabel" style="margin:16px 0 8px">Numbered items. Photos added to an item go in the report with that comment.</div>
-          <div class="list-items">${items.map((it, ix) => { const id = `li_${f.key}_${ix}`; const pl = phs[ix] || []; return `<div class="li-wrap"><div class="li"><span class="n">${ix+1}.</span><textarea class="input" id="${id}" data-bind="${path}.${ix}" placeholder="e.g. Ensure all bars are properly chaired with the required cover">${esc(it)}</textarea>${micBtn(id)}<button class="icon-btn" data-act="li-del" data-k="${f.key}" data-i="${ix}" aria-label="Remove item ${ix+1}">${I.trash}</button></div>
-            <div class="li-ph">${photoTools({kind:'comment', key:f.key, ix}, true)}${pl.length ? `<div class="photos" style="grid-template-columns:repeat(auto-fill,minmax(230px,1fr))">${pl.map((ph, k) => photoCard(ph, `form.${f.key}_ph.${ix}`, k, {num:k + 1, len:pl.length})).join('')}</div>` : ''}</div></div>`; }).join('')}</div>
+          <div class="list-items">${items.map((it, ix) => { const id = `li_${f.key}_${ix}`; const pl = phs[ix] || []; return `<div class="li-wrap"><div class="li"><span class="n">${ix+1}.</span><textarea class="input" id="${id}" data-bind="${path}.${ix}" placeholder="e.g. Ensure all bars are properly chaired with the required cover">${esc(it)}</textarea></div>
+            <div class="li-ph">${photoTools({kind:'comment', key:f.key, ix}, true, `<span class="li-sep"></span><button class="btn sm" type="button" data-act="mic" data-for="${id}" aria-pressed="false">${I.mic}Dictate</button><button class="btn sm" data-act="li-move" data-k="${f.key}" data-i="${ix}" data-d="-1" ${ix === 0 ? 'disabled' : ''}>${I.up}Up</button><button class="btn sm" data-act="li-move" data-k="${f.key}" data-i="${ix}" data-d="1" ${ix === items.length - 1 ? 'disabled' : ''}>${I.down}Down</button><button class="btn sm danger" data-act="li-del" data-k="${f.key}" data-i="${ix}">${I.trash}Delete</button>`)}${pl.length ? `<div class="photos" style="grid-template-columns:repeat(auto-fill,minmax(230px,1fr))">${pl.map((ph, k) => photoCard(ph, `form.${f.key}_ph.${ix}`, k, {num:k + 1, len:pl.length, noMove: pl.length < 2})).join('')}</div>` : ''}</div></div>`; }).join('')}</div>
           <button class="btn" style="margin-top:12px" data-act="li-add" data-k="${f.key}">${I.plus}Add item</button>
           ${[...(cat ? [cat] : []), ...gen].map(c => c.notes && c.notes.length ? `<div class="flabel" style="margin:18px 0 8px">${c.general ? 'General notes' : 'Standard notes for ' + esc(c.name)}. Tap to add as a numbered item.</div><div class="notes-lib">${c.notes.map(n => { const pat = notePattern(n); const on = items.some(x => pat.test(String(x).trim())); return `<button class="note-chip ${on ? 'on' : ''}" data-act="note" data-k="${f.key}" data-v="${esc(n)}" aria-pressed="${on}">${on ? I.check : I.plus}<span>${esc(n)}</span></button>`; }).join('')}</div>` : '').join('')}
           <p class="hint">Text in [brackets] is a blank to fill in.</p></div>`;
@@ -1577,9 +1584,9 @@ function panelHTML(){
   }
   return '';
 }
-function photoTools(target, small){
+function photoTools(target, small, extra){
   const t = esc(JSON.stringify(target)), c = small ? ' sm' : '';
-  return `<div class="add-photos"${small ? ' style="margin:8px 0"' : ''}><button class="btn${c} ${small ? '' : 'primary'}" data-act="pick" data-src="cam" data-target="${t}">${I.cam}${small ? 'Photo' : 'Take photo'}</button><button class="btn${c}" data-act="pick" data-src="lib" data-target="${t}">${I.img}Library</button><button class="btn${c}" data-act="sketch" data-target="${t}">${I.pen}Sketch</button></div>`;
+  return `<div class="add-photos"${small ? ' style="margin:8px 0"' : ''}><button class="btn${c} ${small ? '' : 'primary'}" data-act="pick" data-src="cam" data-target="${t}">${I.cam}${small ? 'Photo' : 'Take photo'}</button><button class="btn${c}" data-act="pick" data-src="lib" data-target="${t}">${I.img}Library</button><button class="btn${c}" data-act="sketch" data-target="${t}">${I.pen}Sketch</button>${extra || ''}</div>`;
 }
 function photoCard(ph, path, ix, o){
   const id = `cap_${path.replace(/\W/g,'_')}_${ix}`;
@@ -1919,7 +1926,7 @@ function openSendModal(file, o){
       <div class="field full"><label for="sdSub">Subject</label><input id="sdSub" value="${esc(o.subject)}"></div>
       <div class="field full"><label for="sdBody">Message</label><textarea id="sdBody" style="min-height:150px">${esc(o.body)}</textarea></div>
     </div>
-    <div id="autoBox" class="hidden" style="margin-top:14px;padding:12px 14px;border-radius:12px;border:2px solid var(--ok);font-size:15px;line-height:1.5"><strong>Send now</strong> emails it straight to the client${o.autoFiles && o.autoFiles.report ? ' with the report' : ''}${o.autoFiles && o.autoFiles.zip ? ' and a zip of the photos' : ''}, with the subject and addresses filled in.${o.autoFiles && o.autoFiles.report && insp.email ? ` ${esc(insp.name)} gets the editable Word copy by email.` : ''} Everything is saved to Dropbox.
+    <div id="autoBox" class="hidden" style="margin-top:14px;padding:12px 14px;border-radius:12px;border:2px solid var(--ok);font-size:15px;line-height:1.5"><strong>Send now</strong> emails ${o.autoFiles && o.autoFiles.report ? 'the client the PDF report' + (o.autoFiles.zip ? ' and a zip of the photos' : '') : 'the photos zip to the client and admin'}, with the subject and addresses filled in.${o.autoFiles && o.autoFiles.report ? ` ${insp.email ? esc(insp.name) + ' and admin get' : 'Admin gets'} a separate email with the Word file, the PDF${o.autoFiles.zip ? ' and the photos zip' : ''}.` : ''} Everything is saved to Dropbox.
       <div class="acts" style="margin-top:10px"><button class="btn primary" data-x="auto">${I.mail}Send now</button></div></div>
     <div id="mailBox" style="margin-top:14px;padding:12px 14px;border-radius:12px;background:var(--brand-soft);color:var(--ink);font-size:15px;line-height:1.5"><strong>Two ways to send, because the iPad won’t let an app fill in everything at once:</strong><br>
       <strong>Send with ${esc(what)} attached</strong>: Mail opens with ${esc(what)} and the message in. Tap <strong>To</strong>, tap again and choose <strong>Paste</strong> (the addresses are copied), then type the subject.<br>
@@ -1943,12 +1950,15 @@ function openSendModal(file, o){
     });
     s.querySelector('[data-x=auto]').onclick = async () => {
       const r = collect(); if (!r) return;
+      const adm = (S.settings.adminEmail || 'admin@structuralarts.com.au').trim().toLowerCase();
+      const cc2 = o.autoFiles.report ? r.cc.filter(x => x.trim().toLowerCase() !== adm) : r.cc;
+      if (o.autoFiles.report && !r.to.length) { toast('Type the client’s email address.'); return; }
       try {
         busy(true, 'Starting…');
-        const res = await autoSend(i, o, r.to, r.cc, r.sub, r.body, m => busy(true, m));
+        const res = await autoSend(i, o, r.to, cc2, r.sub, r.body, m => busy(true, m));
         busy(false);
-        i.sent = (i.sent || []).concat([{at: Date.now(), to: r.to, cc: r.cc, subject: r.sub, folder: res.folder}]); saveCur(true);
-        modal(`<h2>Sent</h2><p class="sub">${esc(r.sub)}</p><p>To ${esc(r.to.join(', ') || '–')}${r.cc.length ? `, copy to ${esc(r.cc.join(', '))}` : ''}.</p>${res.inspector ? `<p>Word copy emailed to ${esc(res.inspector.name)} (${esc(res.inspector.email)}).</p>` : ''}<p>Saved in Dropbox: <strong>${esc(res.folder)}</strong></p><div class="acts"><button class="btn primary" data-x="ok">Done</button></div>`, s2 => { s2.querySelector('[data-x=ok]').onclick = closeModal; });
+        i.sent = (i.sent || []).concat([{at: Date.now(), to: r.to, cc: cc2, subject: r.sub, folder: res.folder}]); saveCur(true);
+        modal(`<h2>Sent</h2><p class="sub">${esc(r.sub)}</p><p>To ${esc(r.to.join(', ') || '–')}${cc2.length ? `, copy to ${esc(cc2.join(', '))}` : ''}.</p>${res.wordTo && res.wordTo.length ? `<p>Word copy emailed to ${esc(res.wordTo.join(' and '))}.</p>` : ''}<p>Saved in Dropbox: <strong>${esc(res.folder)}</strong></p><div class="acts"><button class="btn primary" data-x="ok">Done</button></div>`, s2 => { s2.querySelector('[data-x=ok]').onclick = closeModal; });
         if (S.view === 'editor') { S.keepScroll = true; renderEditor(); }
       } catch (e) { busy(false); toast('Couldn’t send: ' + (e.message || e) + ' Nothing was emailed. Try again, or use the Mail app.'); }
     };
@@ -2202,7 +2212,7 @@ async function autoSend(i, o, to, cc, subject, body, progress){
   const files = [];
   if (o.autoFiles.report) files.push({file:o.autoFiles.report, client:true, inspector:true});
   if (o.autoFiles.report) { progress('Making the Word copy…'); const w = await buildWordBlob(i); files.push({file:new File([w], reportFileBase(i) + '.docx', {type:w.type}), inspector:true}); }
-  if (o.autoFiles.zip) files.push({file:o.autoFiles.zip, client:true, zip:true});
+  if (o.autoFiles.zip) files.push({file:o.autoFiles.zip, client:true, inspector:true, zip:true});
   const folder = [d.ref, d.project || d.address].filter(Boolean).join(' ') || 'Inspections';
   const now = new Date(), pad = n => String(n).padStart(2, '0');
   const sub = `${d.date || now.toISOString().slice(0, 10)} ${pad(now.getHours())}${pad(now.getMinutes())} ${reportTitleOf(i)}`;
@@ -2238,19 +2248,21 @@ async function autoSend(i, o, to, cc, subject, body, progress){
   }
   progress('Sending the emails…');
   const clientFiles = files.filter(f => f.client && !f.skip).map(f => ({path:f.path, name:f.file.name})).concat(extra);
-  const inspFiles = files.filter(f => f.inspector).map(f => ({path:f.path, name:f.file.name}));
+  const inspFiles = files.filter(f => f.inspector && !f.skip).map(f => ({path:f.path, name:f.file.name})).concat(extra);
   const first = (c.name || '').split(' ')[0];
+  const adminMail = (S.settings.adminEmail || 'admin@structuralarts.com.au').trim();
+  const wordTo = [...new Set([c.email, adminMail].map(x => String(x || '').trim().toLowerCase()).filter(Boolean))];
   const payload = {
     to, cc, subject, text: body, replyTo: c.email || '', clientFiles,
-    inspector: o.autoFiles.report && c.email ? {
-      to: c.email, files: inspFiles, subject: 'Word copy - ' + subject,
-      text: `Hi ${first || 'there'},\n\nThe report "${subject}" was sent to ${to.join(', ') || cc.join(', ')}${to.length && cc.length ? ' (copy to ' + cc.join(', ') + ')' : ''}.\n\nThe editable Word copy is attached in case anything needs changing. The PDF, Word file${o.autoFiles.zip ? ' and photos' : ''} are also saved in Dropbox:\n${up.folder}\n\nSent automatically by the SA Inspections app.`
+    inspector: o.autoFiles.report && wordTo.length ? {
+      to: wordTo, files: inspFiles, subject: 'Word copy - ' + subject,
+      text: `Hi ${wordTo.length > 1 ? 'all' : (first || 'there')},\n\nThe report "${subject}" was sent to ${to.join(', ') || cc.join(', ')}${to.length && cc.length ? ' (copy to ' + cc.join(', ') + ')' : ''}.\n\nThe editable Word copy, the PDF${o.autoFiles.zip ? ' and the photos' : ''} are attached, and are also saved in Dropbox:\n${up.folder}\n\nSent automatically by the SA Inspections app.`
     } : null
   };
   const r = await fetch('/.netlify/functions/sa-send', {method:'POST', headers:{...autoHeaders(), 'content-type':'application/json'}, body: JSON.stringify(payload)});
   if (!r.ok) throw new Error(await errText(r));
   await r.json();
-  return {folder: up.folder, inspector: payload.inspector ? c : null};
+  return {folder: up.folder, wordTo: payload.inspector ? wordTo : []};
 }
 async function refreshAutoState(){
   const el = $('#autoState'); if (!el) return;
@@ -2517,6 +2529,10 @@ document.addEventListener('click', async e => {
     case 'ph-cover': { const p = getPath(i, b.dataset.path)[+b.dataset.i]; i.coverPhoto = {id:p.id, w:p.w, h:p.h, caption:''}; saveCur(); S.keepScroll = true; renderEditor(); toast('Set as the cover photo.'); break; }
     case 'ph-del': { if (!(await confirmBox('Delete this photo?', 'It will be removed from the inspection.', 'Delete photo'))) return; const list = getPath(i, b.dataset.path); const [p] = list.splice(+b.dataset.i, 1); const stillUsed = i.coverPhoto && i.coverPhoto.id === p.id; if (!stillUsed) store.del('photo:' + p.id); if (p.orig && !(i.coverPhoto && i.coverPhoto.id === p.orig)) store.del('photo:' + p.orig); saveCur(); S.keepScroll = true; renderEditor(); break; }
     case 'li-add': { i.form[b.dataset.k].push(''); const pa = i.form[b.dataset.k + '_ph'] = i.form[b.dataset.k + '_ph'] || []; while (pa.length < i.form[b.dataset.k].length) pa.push([]); saveCur(); S.keepScroll = true; renderEditor(); const items = document.querySelectorAll(`[id^="li_${b.dataset.k}_"]`); items.length && items[items.length-1].focus(); break; }
+    case 'li-move': { const k = b.dataset.k, ix = +b.dataset.i, j = ix + (+b.dataset.d); const items = i.form[k] || []; if (j < 0 || j >= items.length) return;
+      const pa = i.form[k + '_ph'] = i.form[k + '_ph'] || []; while (pa.length < items.length) pa.push([]);
+      [items[ix], items[j]] = [items[j], items[ix]]; [pa[ix], pa[j]] = [pa[j], pa[ix]];
+      saveCur(); S.keepScroll = true; renderEditor(); break; }
     case 'li-del': { const k = b.dataset.k, ix = +b.dataset.i; const pa = i.form[k + '_ph'] || []; const gone = pa[ix] || [];
       if (gone.length && !(await confirmBox(`Remove item ${ix + 1}?`, `Its ${gone.length} photo${gone.length === 1 ? '' : 's'} will be deleted too.`, 'Remove item'))) return;
       i.form[k].splice(ix, 1); pa.splice(ix, 1); gone.forEach(ph => { store.del('photo:' + ph.id); if (ph.orig) store.del('photo:' + ph.orig); }); saveCur(); S.keepScroll = true; renderEditor(); break; }
