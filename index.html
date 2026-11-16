@@ -2258,7 +2258,7 @@ async function autoSend(i, o, to, cc, subject, body, progress){
   const payload = {
     to, cc, subject, text: body, replyTo: c.email || '', clientFiles,
     inspector: o.autoFiles.report && wordTo.length ? {
-      to: wordTo, files: inspFiles, subject: 'Word copy - ' + subject,
+      to: wordTo, files: inspFiles, subject: subject,
       text: `Hi ${wordTo.length > 1 ? 'all' : (first || 'there')},\n\nThe report "${subject}" was sent to ${to.join(', ') || cc.join(', ')}${to.length && cc.length ? ' (copy to ' + cc.join(', ') + ')' : ''}.\n\nThe editable Word copy, the PDF${o.autoFiles.zip ? ' and the photos' : ''} are attached, and are also saved in Dropbox:\n${up.folder}\n\nSent automatically by the SA Inspections app.`
     } : null
   };
