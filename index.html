@@ -723,8 +723,10 @@ const DEFAULT_TEAM = [
   {id:'kelvin', name:'Kelvin Borkowsky', phone:'0431 267 675', email:'kelvin@structuralarts.com.au'},
   {id:'vitor', name:'Vitor Matioli', phone:'0494 113 058', email:'vitor@structuralarts.com.au'},
   {id:'alessandra', name:'Alessandra Feriance', phone:'0431 507 211', email:'alessandra@structuralarts.com.au'},
-  {id:'julia', name:'Julia Sanches', phone:'0410 194 066', email:'julia.sanches@structuralarts.com.au'}
+  {id:'julia', name:'Julia Sanches', phone:'0410 194 066', email:'julia.sanches@structuralarts.com.au'},
+  {id:'fabricio', name:'Fabricio Santos', phone:'0478 455 345', email:'fabricio@structuralarts.com.au'}
 ];
+const TEAM_VERSION = 2;
 const COMMENT_STARTERS = [
   'Based on our site inspection, the {element} appears to be generally in conformance with the structural design with the comments below.',
   'Based on our review of the photos provided, the {element} appears to be generally in conformance with the structural design with the comments below.',
@@ -922,6 +924,7 @@ function saveCur(now){
 async function loadAll(){
   const st = await store.get('settings'); if (st) S.settings = {...DEFAULT_SETTINGS, ...st};
   if (!Array.isArray(S.settings.team) || !S.settings.team.length) S.settings.team = clone(DEFAULT_TEAM);
+  if ((S.settings.teamVersion || 1) < TEAM_VERSION) { DEFAULT_TEAM.forEach(m => { if (!S.settings.team.some(x => x.id === m.id || x.name === m.name)) S.settings.team.push(clone(m)); }); S.settings.teamVersion = TEAM_VERSION; await store.set('settings', S.settings); }
   const tp = await store.get('templates'); S.templates = Array.isArray(tp) && tp.length ? tp : clone(DEFAULT_TEMPLATES);
   const lb = await store.get('library');
   if (Array.isArray(lb) && lb.length) { S.library = lb; const lv = (await store.get('libraryVersion')) || 1; if (lv < LIB_VERSION) { mergeDefaultLibrary(); await store.set('library', S.library); } }
