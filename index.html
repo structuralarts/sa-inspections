@@ -516,6 +516,8 @@ const SADocx = (() => {
         if (intro) x += plain(intro);
         if (intro && items.length) x += '<w:p/>';
         x += items.map((it, k) => `<w:p><w:pPr><w:tabs><w:tab w:val="left" w:pos="360"/></w:tabs><w:spacing w:after="60"/><w:ind w:left="360" w:hanging="360"/></w:pPr><w:r><w:t>${k + 1}.</w:t></w:r><w:r><w:tab/></w:r><w:r><w:t xml:space="preserve">${tx(it)}</w:t></w:r></w:p>`).join('');
+        const outro = String(form[key + '_outro'] || '').trim();
+        if (outro) x += (x ? '<w:p/>' : '') + outro.split(/\n\s*\n/).map(pp => plain(pp.trim())).join('<w:p/>');
         return x || plain('');
       };
       const valOf = f => f.type === 'list' ? listContent(f.key) : plain(fv(f.key));
@@ -556,7 +558,8 @@ const SADocx = (() => {
           const intro = (insp.form || {})[f.key + '_intro'] || '';
           const items = (Array.isArray(v) ? v : []).filter(x => String(x).trim());
           content = (intro ? P(R(intro), { after: items.length ? 160 : 0, align: 'both' }) : '') +
-            items.map((it, ix) => P(R(`${ix + 1}.`) + '<w:r><w:tab/></w:r>' + R(it), { indent: 720, hanging: 360, tabs: [{ val: 'left', pos: 720 }], after: 80 })).join('');
+            items.map((it, ix) => P(R(`${ix + 1}.`) + '<w:r><w:tab/></w:r>' + R(it), { indent: 720, hanging: 360, tabs: [{ val: 'left', pos: 720 }], after: 80 })).join('') +
+            String((insp.form || {})[f.key + '_outro'] || '').split(/\n\s*\n/).map(x => x.trim()).filter(Boolean).map(pp => P(R(pp), { before: 120, after: 80, align: 'both' })).join('');
           if (!content) content = P(R('N/A'), { after: 0 });
         } else {
           content = P(R(v && String(v).trim() ? v : 'N/A'), { after: 0 });
@@ -580,7 +583,9 @@ const SADocx = (() => {
           const ph = extra[i + j];
           if (!ph) { cells.push(cell('', { w: half })); continue; }
           const img = await photo(ph, Math.round(7.9 * CM), Math.round(7.4 * CM));
-          cells.push(cell(P(img, { align: 'center', after: 80 }) + P(R(`Photo ${i + j + 1}`, { b: true }) + (ph.caption ? R(': ' + ph.caption) : ''), { after: 0 }), { w: half }));
+          cells.push(cell(P(img, { align: 'center', after: 80 }) + (t.kind === 'rooms'
+            ? P(R(`Photo ${i + j + 1}`, { b: true }) + (ph.caption ? R(': ' + ph.caption) : ''), { after: 0 })
+            : P(R(`Photo ${i + j + 1}`, { b: true }), { align: 'center', after: ph.caption ? 40 : 0 }) + (ph.caption ? P(R(ph.caption), { align: 'center', after: 0 }) : '')), { w: half }));
         }
         rows.push(row(cells, { cantSplit: true }));
       }
@@ -732,12 +737,19 @@ const COMMENT_STARTERS = [
   'Based on our review of the photos provided, the {element} appears to be generally in conformance with the structural design with the comments below.',
   'This inspection was based on photographs provided to Structural Arts by email received on [date]. The {element} generally appears in accordance with the design specifications subject to the following comments:',
   'The {element} has been found to be generally in accordance with the structural drawings with the exception of the following comments:',
+  'All reinforcing for the elements inspected looks to be generally in accordance with the design for the [clay] option.',
   'Based on our site inspection, the {element} is in conformance with the structural design. No further comments.'
 ];
-const STARTER_LABELS = ['Site inspection', 'Photo review', 'Photos by email', 'With exceptions', 'No comments'];
-const LIB_VERSION = 4;
+const STARTER_LABELS = ['Site inspection', 'Photo review', 'Photos by email', 'With exceptions', 'Footing option', 'No comments'];
+const LIB_VERSION = 5;
 const DEFAULT_LIBRARY = [
-  { id:'general', name:'General', general:true, elements:[], wip:[], next:[], notes:[
+  { id:'general', name:'General', general:true, elements:[], wip:[], next:[], closing:[
+    'We have not checked that all the required inserts are installed or are in the correct position. Please ensure bases are clean and dry prior to placing concrete.',
+    'Ensure all bases are clean, dry and free from debris prior to concreting. Ensure all bars are properly chaired and with the required cover.',
+    'Please provide photos of rectified works when complete.',
+    'Please ensure forms are clean and free of debris prior to placing concrete.',
+    'Please provide higher resolution photos for future inspections.',
+    'We note that concrete had been poured prior to our review.' ], notes:[
     'Ensure all bases are clean, dry and free from debris prior to concreting.',
     'Confirm concrete strength is [32] MPa.',
     'We note that concrete had been poured prior to our review.',
@@ -747,8 +759,20 @@ const DEFAULT_LIBRARY = [
     'Please provide higher resolution photos for future inspections.',
     'No levels or set-outs were evaluated as part of this inspection.',
     'Structural Arts to advise on the requested reinforcement adjustments.' ] },
-  { id:'footings', name:'Footings and slabs', elements:['Pad footings','Strip footings','Slab reinforcement','Concrete reinforcement','Pier holes','Internal slab','Internal pavement reinforcing','Pad footings grid [ ]'], wip:['Excavation','Reinforcement','Pad footing reinforcement','Pre-pour'], next:['Slab pre-pour','T.B.A'], notes:[
+  { id:'footings', name:'Footings and slabs', closing:[
+    'Please ensure all trimmer bars are in place and all saw cut joint locations are marked and mesh trimmed.',
+    'Please ensure all pad bases are clean and free from debris prior to concreting. Ensure minimum cover requirements are achieved in all footings reinforcing.',
+    'Ensure minimum cover requirements are achieved in all footings reinforcing, including construction trimmer bars placed under the reinforcing on [PF8] footings.',
+    'Some pad footings had fallen walls and should be adjusted to maintain minimum pad footing size and reinforcing cover requirements.',
+    'It was noted that the diamond shape isolation joint around the columns is not in place. This can be maintained, and the saw cut joints around the column should go as close to the column as possible without damaging the column.',
+    'At [both units] it was noted that some saw cut joint lines mesh were not cut yet. Please provide the preparation as per structural detail.',
+    'It is not possible to evaluate pier depths through photos, builder must ensure all piers are excavated to the correct level.' ], elements:['Pad footings','Strip footings','Slab reinforcement','Concrete reinforcement','Pier holes','Internal slab','Internal pavement reinforcing','Pad footings grid [ ]'], wip:['Excavation','Reinforcement','Pad footing reinforcement','Pre-pour'], next:['Slab pre-pour','T.B.A'], notes:[
     'Ensure all bars are properly chaired and with the required cover.',
+    'Water was noted on [PF3 (12)], please drain all water prior to concrete.',
+    'At [PF8 (28)] the cover at the [top corner] seems small, please ensure minimum cover requirement is achieved.',
+    'On [PF3 (10)] bar cogs are horizontally placed, please change to vertical as documented.',
+    'At the building side of the slab there are no dowels to the building footing. Please provide dowels @ [600] crs as per detail on [S100].',
+    'Please provide [R16] dowels to the [footpath] at [600] crs.',
     'Ensure base is free of ponded water prior to pouring concrete.',
     'Ensure base is generally free of loose material.',
     'Remove as much water as possible from the base of the footing.',
@@ -763,7 +787,9 @@ const DEFAULT_LIBRARY = [
     'Trimmer bars are required to be added around the [roof water pipe] penetrations.',
     'Confirm saw cut joint was installed as detailed.',
     'Provide 10mm Ableflex to the building panel as per Isolation Joint requirement.' ] },
-  { id:'piers', name:'Bored piers', elements:['Bored piers','Pier reinforcing cages','Sleeper wall bored piers'], wip:['Bored pier pour'], next:['Next pour','T.B.A'], notes:[
+  { id:'piers', name:'Bored piers', closing:[
+    'It is not possible to evaluate pier depths through photos, builder must ensure all piers are excavated to the correct level.',
+    'Please confirm that all bored pier bases are dry, clean, free from debris or any loose or soft material prior to concreting.' ], elements:['Bored piers','Pier reinforcing cages','Sleeper wall bored piers'], wip:['Bored pier pour'], next:['Next pour','T.B.A'], notes:[
     'No levels or set-outs for the bored piers were evaluated. Pier geometry seems to be in accordance, but it is not possible to confirm pier location against depths through photos. Site must ensure appropriate depths in accordance with the design.',
     'Please confirm that all bored pier bases are dry, clean, free from debris or any loose or soft material prior to concreting.',
     'Some piers appear to have water at the bottom. Please ensure that all free water is removed prior to or during the pour so it does not change the concrete mix and reduce its strength.',
@@ -771,7 +797,9 @@ const DEFAULT_LIBRARY = [
     'Pier bases present water due to proximity with the creek. Water to be pumped out to a minimal level prior to pouring the concrete.',
     'Most posts were in place and the cover requirements seem to be achieved, site to confirm prior to concreting.',
     'Posts that were not in place may be wet installed after pouring. Vibration must be provided in these cases to ensure no air bubbles are present in the concrete and the steel is fully embedded.' ] },
-  { id:'tilt', name:'Tilt panels', elements:['Tilt panel reinforcing – panels [numbers]','Panel connections','Panel bracing'], wip:['Panel reinforcing placement','Panel erection'], next:['T.B.A (photos)','Panel connections'], notes:[
+  { id:'tilt', name:'Tilt panels', closing:[
+    'We have not checked that all the required inserts are installed or are in the correct position. Please ensure forms are clean and free of debris prior to placing concrete.',
+    'Please provide photos of the next panels prior to pouring.' ], elements:['Tilt panel reinforcing – panels [numbers]','Panel connections','Panel bracing'], wip:['Panel reinforcing placement','Panel erection'], next:['T.B.A (photos)','Panel connections'], notes:[
     'Please ensure forms are clean and free of debris prior to placing concrete.',
     'We have not checked that all the required inserts are installed or are in the correct position.',
     'Panel [number]: there should be [2] N12 trimmers each face above the opening. Please add the missing bars.',
@@ -783,14 +811,16 @@ const DEFAULT_LIBRARY = [
     'Ensure panels remain braced in accordance with the approved bracing design until all permanent connections are complete.',
     'Ensure the panel base is fully grouted with non-shrink grout as per structural drawings.',
     'Confirm dowel bars are installed and grouted as detailed.' ] },
-  { id:'block', name:'Block walls', elements:['Block wall reinforcing','Block work – ground level','Block work – top level and stairs','Block retaining wall reinforcing'], wip:['Block work','Core fill'], next:['Core fill','T.B.C'], notes:[
+  { id:'block', name:'Block walls', closing:[
+    'Please ensure all block bases are clean and free of debris prior to concreting. Ensure minimum cover is provided to all reinforcement.' ], elements:['Block wall reinforcing','Block work – ground level','Block work – top level and stairs','Block retaining wall reinforcing'], wip:['Block work','Core fill'], next:['Core fill','T.B.C'], notes:[
     'Ensure minimum cover is provided to all reinforcement.',
     'Ensure block cavities and the base of stair formwork are cleaned of all debris.',
     'Please confirm that all bars are correctly positioned and secured in place to avoid movement during the concrete pour.',
     'Please ensure all block bases are clean and free of debris prior to concreting.',
     'The N16 “L” bars at the top of the wall, to be lapped with the slab reinforcement, were not in place. These bars are expected to be installed after the block cores are filled while the concrete is still wet. Please ensure the concrete is properly vibrated to prevent air voids around the bars.',
     'Confirm all reinforced block cores are fully core-filled.' ] },
-  { id:'suspended', name:'Suspended slabs', elements:['Suspended slab – bottom reinforcement – level [ ]','Suspended slab – top reinforcement – level [ ]','Balcony reinforcement','Beams'], wip:['Bottom reinforcement','Top reinforcement'], next:['Top reinforcement','Pre-pour','T.B.C'], notes:[
+  { id:'suspended', name:'Suspended slabs', closing:[
+    'Please confirm all starters, rebar sizes, cover and set downs prior to concreting.' ], elements:['Suspended slab – bottom reinforcement – level [ ]','Suspended slab – top reinforcement – level [ ]','Balcony reinforcement','Beams'], wip:['Bottom reinforcement','Top reinforcement'], next:['Top reinforcement','Pre-pour','T.B.C'], notes:[
     'Please confirm all starters have been placed in accordance with the drawings.',
     'Please confirm all rebar cover and set downs.',
     'Please confirm all rebar sizes.',
@@ -799,7 +829,8 @@ const DEFAULT_LIBRARY = [
     'Beam [CB3] should be connected with [5] N20 dowels into the block wall. Only [3] dowels are currently installed.',
     'The chemset to [CB2/3] is still to be done.',
     'The balcony reinforcement should have [N16 or 2N12] at the spacing shown on the structural drawings, as instructed on site.' ] },
-  { id:'steel', name:'Steel framing', elements:['Stairs frame and connections','Steel beams and columns','Structural steel – units [ ]','Structural steel framing for ceiling mounted items','Roof structure and purlins','Mezzanine steel','Lift shaft ladder / brace frame','Façade sill and window head beams','Base plates and hold-down bolts','Roof plant platform'], wip:['Steel erection','Cladding'], next:['Stairs','T.B.A'], notes:[
+  { id:'steel', name:'Steel framing', closing:[
+    'Please ensure all base plates are grouted and all bolts are fully tightened prior to loading the structure.' ], elements:['Stairs frame and connections','Steel beams and columns','Structural steel – units [ ]','Structural steel framing for ceiling mounted items','Roof structure and purlins','Mezzanine steel','Lift shaft ladder / brace frame','Façade sill and window head beams','Base plates and hold-down bolts','Roof plant platform'], wip:['Steel erection','Cladding'], next:['Stairs','T.B.A'], notes:[
     'All framing and connections seem to be generally in accordance with the design.',
     'Photographs of the as-constructed steel have been reviewed and found to be generally in accordance with the engineering documentation.',
     'The roof structure is generally in accordance with the design. All structural steel and purlins were installed but no roof sheeting.',
@@ -863,7 +894,7 @@ function mergeDefaultLibrary(){
   DEFAULT_LIBRARY.forEach(dc => {
     const c = S.library.find(x => x.id === dc.id);
     if (!c) { S.library.push(clone(dc)); return; }
-    ['notes', 'elements', 'wip', 'next'].forEach(k => { c[k] = c[k] || []; (dc[k] || []).forEach(v => { if (!c[k].includes(v)) c[k].push(v); }); });
+    ['notes', 'elements', 'wip', 'next', 'closing'].forEach(k => { c[k] = c[k] || []; (dc[k] || []).forEach(v => { if (!c[k].includes(v)) c[k].push(v); }); });
   });
 }
 
@@ -1169,7 +1200,7 @@ async function prepareReport(src){
       i.form[f.key] = items.map((txt, k) => {
         const t = String(txt || '').trim(); if (t) n++;
         const list = phs[k] || []; if (!list.length) return txt;
-        const nums = list.map(ph => { repPhotos.push({...ph, caption: (t ? `Comment ${n}: ` : '') + (ph.caption && ph.caption !== 'Sketch' ? ph.caption : t)}); return repPhotos.length; });
+        const nums = list.map(ph => { repPhotos.push({...ph, caption: ph.caption && ph.caption !== 'Sketch' ? ph.caption : ''}); return repPhotos.length; });
         return t ? `${t} (refer Photo${nums.length > 1 ? 's' : ''} ${nums.join(', ')})` : txt;
       });
     });
@@ -1416,7 +1447,7 @@ function newInspection(tplId, member){
   };
   (t.fields || []).forEach(f => { i.form[f.key] = f.type === 'list' ? [''] : ''; if (f.type === 'list') i.form[f.key + '_intro'] = ''; });
   if ((t.fields || []).some(f => f.key === 'next')) i.form.next = 'T.B.A';
-  i.form.method = 'site';
+  i.form.method = '';
   i.plans = []; i.pins = [];
   S.list.unshift(i); S.cur = i; S.panel = t.kind === 'rooms' ? 'details' : 'form'; S.pinSel = null; S.planSel = null; S.zoom = 1; saveCur(true); renderEditor();
   if (t.kind !== 'rooms') pickCategory();
@@ -1573,7 +1604,10 @@ function panelHTML(){
             <div class="li-ph">${photoTools({kind:'comment', key:f.key, ix}, true, `<span class="li-sep"></span><button class="btn sm" type="button" data-act="mic" data-for="${id}" aria-pressed="false">${I.mic}Dictate</button><button class="btn sm" data-act="li-move" data-k="${f.key}" data-i="${ix}" data-d="-1" ${ix === 0 ? 'disabled' : ''}>${I.up}Up</button><button class="btn sm" data-act="li-move" data-k="${f.key}" data-i="${ix}" data-d="1" ${ix === items.length - 1 ? 'disabled' : ''}>${I.down}Down</button><button class="btn sm danger" data-act="li-del" data-k="${f.key}" data-i="${ix}">${I.trash}Delete</button>`)}${pl.length ? `<div class="photos" style="grid-template-columns:repeat(auto-fill,minmax(230px,1fr))">${pl.map((ph, k) => photoCard(ph, `form.${f.key}_ph.${ix}`, k, {num:k + 1, len:pl.length, noMove: pl.length < 2})).join('')}</div>` : ''}</div></div>`; }).join('')}</div>
           <button class="btn" style="margin-top:12px" data-act="li-add" data-k="${f.key}">${I.plus}Add item</button>
           ${[...(cat ? [cat] : []), ...gen].map(c => c.notes && c.notes.length ? `<div class="flabel" style="margin:18px 0 8px">${c.general ? 'General notes' : 'Standard notes for ' + esc(c.name)}. Tap to add as a numbered item.</div><div class="notes-lib">${c.notes.map(n => { const pat = notePattern(n); const on = items.some(x => pat.test(String(x).trim())); return `<button class="note-chip ${on ? 'on' : ''}" data-act="note" data-k="${f.key}" data-v="${esc(n)}" aria-pressed="${on}">${on ? I.check : I.plus}<span>${esc(n)}</span></button>`; }).join('')}</div>` : '').join('')}
-          <p class="hint">Text in [brackets] is a blank to fill in.</p></div>`;
+          <p class="hint">Text in [brackets] is a blank to fill in.</p>
+          ${(() => { const oid = 'f_form_' + f.key + '_outro', outro = String(i.form[f.key + '_outro'] || ''); const paras = outro.split(/\n\s*\n/).map(x => x.trim()).filter(Boolean);
+            return `<div class="field" style="margin-top:20px"><label for="${oid}">Closing paragraphs (no numbers, shown after the numbered items)</label><div class="with-mic"><textarea id="${oid}" data-bind="form.${f.key}_outro" placeholder="Tap a closing note below, or dictate your own">${esc(outro)}</textarea>${micBtn(oid)}</div></div>
+            ${[...(cat ? [cat] : []), ...gen].map(c => (c.closing || []).length ? `<div class="flabel" style="margin:14px 0 8px">${c.general ? 'General closing notes' : 'Closing notes for ' + esc(c.name)}. Tap to add as a paragraph.</div><div class="notes-lib">${c.closing.map(n => { const pat = notePattern(n); const on = paras.some(x => pat.test(x)); return `<button class="note-chip ${on ? 'on' : ''}" data-act="closing" data-k="${f.key}" data-v="${esc(n)}" aria-pressed="${on}">${on ? I.check : I.plus}<span>${esc(n)}</span></button>`; }).join('')}</div>` : '').join('')}`; })()}</div>`;
       }
       return `<div class="card">${field(f.label, path, {type: f.type === 'long' ? 'long' : 'text', mic: f.type !== 'long'})}${sugg(f.key, f.key === 'elements' ? (cat ? cat.elements : null) : f.key === 'wip' ? [...new Set(['Construction', ...(cat ? cat.wip : [])])] : f.key === 'next' ? (cat ? cat.next : null) : null)}</div>`;
     }).join('')}`;
@@ -1722,6 +1756,7 @@ async function buildFormPdf(insp, getBytes){
     const out = intro ? intro.split('\n').map(l => l.trim() ? para(l) : {blank:true}) : [];
     if (intro && items.length) out.push({blank:true});
     items.forEach((it, k) => out.push(para(it, {lead:`${k + 1}.`, indent:5, after:0.8})));
+    String(form[key + '_outro'] || '').split(/\n\s*\n/).map(x => x.trim()).filter(Boolean).forEach(pp => { if (out.length) out.push({blank:true}); pp.split('\n').forEach(l => out.push(para(l))); });
     return out.length ? out : lines('');
   };
   const fields = t.fields || [];
@@ -1752,15 +1787,17 @@ async function buildFormPdf(insp, getBytes){
         const ph = photos[k + j]; if (!ph) { cells.push(null); continue; }
         const bytes = await getBytes(ph.id); const [w, h] = fitMM(ph.w, ph.h, cw - 6, 74);
         doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
-        cells.push({bytes, w, h, cap: doc.splitTextToSize(`Photo ${k + j + 1}${ph.caption ? ': ' + ph.caption : ''}`, cw - 4)});
+        cells.push({bytes, w, h, n: k + j + 1, cap: ph.caption ? doc.splitTextToSize(ph.caption, cw - 6) : []});
       }
-      const rowH = Math.max(...cells.filter(Boolean).map(c => 3 + c.h + 3 + c.cap.length * LH(9) + 1.5));
+      const rowH = Math.max(...cells.filter(Boolean).map(c => 3 + c.h + 3 + (c.cap.length + 1) * LH(9) + 1.5));
       if (y + rowH > BOTTOM) { doc.addPage(); y = TOP + 1; }
       cells.forEach((c, j) => {
         const x = X0 + j * cw; doc.setDrawColor(0); doc.setLineWidth(0.2); doc.rect(x, y, cw, rowH); if (!c) return;
         if (c.bytes) doc.addImage(c.bytes, 'JPEG', x + (cw - c.w) / 2, y + 3, c.w, c.h);
         doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(0);
-        c.cap.forEach((ln, q) => doc.text(ln, x + 2, y + 3 + c.h + 3 + 9 * 0.3528 * 0.82 + q * LH(9)));
+        const by = y + 3 + c.h + 3 + 9 * 0.3528 * 0.82;
+        doc.setFont('helvetica', 'bold'); doc.text(`Photo ${c.n}`, x + cw / 2, by, {align:'center'}); doc.setFont('helvetica', 'normal');
+        c.cap.forEach((ln, q) => doc.text(ln, x + cw / 2, by + (q + 1) * LH(9), {align:'center'}));
       });
       y += rowH;
     }
@@ -2139,6 +2176,7 @@ function setCategory(name){
   if (c && !String(i.form.elements || '').trim() && c.elements.length === 1) i.form.elements = c.elements[0];
   autoIntro(i);
   saveCur(); S.panel = 'form'; S.keepScroll = false; renderEditor();
+  if (!i.form.method) pickMethod();
 }
 function askOtherCategory(){
   modal(`<h2>Other inspection</h2><div class="field"><label for="catName">What are you inspecting?</label><input id="catName" placeholder="e.g. Pool shell" value="${esc(currentCat() ? '' : (S.cur.form.category || ''))}"></div><div class="acts"><button class="btn" data-x="no">Cancel</button><button class="btn primary" data-x="yes">Use this</button></div>`, s => {
@@ -2152,11 +2190,19 @@ function pickCategory(){
     <div class="acts"><button class="btn" data-x="skip">Skip for now</button></div>`, s => {
     s.querySelectorAll('[data-c]').forEach(b => b.onclick = () => { closeModal(); setCategory(b.dataset.c); });
     s.querySelector('[data-other]').onclick = () => { closeModal(); askOtherCategory(); };
-    s.querySelector('[data-x=skip]').onclick = closeModal;
+    s.querySelector('[data-x=skip]').onclick = () => { closeModal(); pickMethod(); };
+  });
+}
+function pickMethod(){
+  const i = S.cur; if (!i || i.form.method) return;
+  modal(`<h2>How was it inspected?</h2><p class="sub">This sets the report title, the wording and the email.</p>
+    <div class="cat-grid"><button class="cat-tile" data-v="site">On site<br><small style="font-weight:500;color:var(--muted)">Structural Site Inspection Report</small></button><button class="cat-tile" data-v="photos">From photos sent to us<br><small style="font-weight:500;color:var(--muted)">Structural Photo Inspection Report</small></button></div>`, s => {
+    s.querySelectorAll('[data-v]').forEach(b => b.onclick = () => { closeModal(); i.form.method = b.dataset.v; autoIntro(i); saveCur(); S.keepScroll = true; renderEditor(); });
   });
 }
 function finishReport(){
   const i = S.cur;
+  if (i.tpl.kind !== 'rooms' && !i.form.method) { pickMethod(); toast('Choose site or photo inspection first, then tap Finish report again.'); return; }
   if (!i.details.project) { S.panel = 'details'; renderEditor(); toast('Add the project name first.'); $('#f_details_project') && $('#f_details_project').focus(); return; }
   modal(`<h2>Finish report</h2><p class="sub">${esc(i.details.project)}${i.form.elements ? ', ' + esc(i.form.elements) : ''}</p>
     <button class="fin" data-x="send">${I.mail}<span><strong>Send PDF to client and admin</strong><small>Makes the PDF and opens Mail with it attached, addressed to the client with a copy to ${esc(S.settings.adminEmail || 'admin@structuralarts.com.au')}.</small></span></button>
@@ -2178,6 +2224,7 @@ function openLibEditor(id){
   modal(`<h2>${src ? 'Edit ' + esc(c.name) : 'New inspection category'}</h2><p class="sub">Use [brackets] for blanks to fill in on site.</p>
     ${c.general || c.rooms ? '' : `<div class="field"><label>Name</label><input data-l="name" value="${esc(c.name)}" placeholder="e.g. Pool shell"></div>`}
     ${ta('notes', c.general ? 'Notes shown for every inspection' : c.rooms ? 'Quick phrases for room observations' : 'Standard notes', 220)}
+    ${c.rooms ? '' : ta('closing', 'Closing notes (added after the numbered items, without numbers)', 140)}
     ${c.general || c.rooms ? '' : ta('elements', 'Suggested elements', 90) + ta('wip', 'Work in progress suggestions', 70) + ta('next', 'Next inspection suggestions', 70)}
     <div class="acts">${src && !c.general && !c.rooms ? `<button class="btn danger" data-x="del" style="margin-right:auto">${I.trash}Delete</button>` : ''}<button class="btn" data-x="no">Cancel</button><button class="btn primary" data-x="yes">Save</button></div>`, s => {
     s.querySelector('[data-x=no]').onclick = closeModal;
@@ -2501,6 +2548,10 @@ document.addEventListener('click', async e => {
       r.notes = (String(r.notes || '').trim() ? String(r.notes).trim() + '\n' : '') + f;
       if (/^No defects observed/i.test(f) && !r.rating) r.rating = 'none';
       saveCur(); S.keepScroll = true; renderEditor(); break; }
+    case 'closing': { const k = b.dataset.k + '_outro', v = b.dataset.v; const paras = String(i.form[k] || '').split(/\n\s*\n/).map(x => x.trim()).filter(Boolean);
+      const pat = notePattern(v), ix = paras.findIndex(x => pat.test(x));
+      if (ix >= 0) paras.splice(ix, 1); else { const f = await fillBlanks(v, 'Fill in the blanks'); if (f == null) return; paras.push(f); }
+      i.form[k] = paras.join('\n\n'); saveCur(); S.keepScroll = true; renderEditor(); break; }
     case 'note': { const k = b.dataset.k, v = b.dataset.v; const items = i.form[k] = Array.isArray(i.form[k]) ? i.form[k] : []; const pa = i.form[k + '_ph'] = i.form[k + '_ph'] || []; while (pa.length < items.length) pa.push([]);
       const pat = notePattern(v); const ix = items.findIndex(x => pat.test(String(x).trim()));
       if (ix >= 0) { if ((pa[ix] || []).length) { toast('That item has photos. Remove it with its bin button if you’re sure.'); return; } items.splice(ix, 1); pa.splice(ix, 1); }
